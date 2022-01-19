@@ -134,12 +134,12 @@
 		<link>
 			<name>drv8305.c</name>
 			<type>1</type>
-			<locationURI>PARENT-4-PROJECT_LOC/ti/motorware/motorware/sw/drivers/drvic/drv8305/src/32b/f28x/f2806x/drv8305.c</locationURI>
+			<locationURI>MW_INSTALL_DIR/sw/drivers/drvic/drv8305/src/32b/f28x/f2806x/drv8305.c</locationURI>
 		</link>
 		<link>
 			<name>enc.c</name>
 			<type>1</type>
-			<locationURI>PARENT-4-PROJECT_LOC/ti/motorware/motorware/sw/modules/enc/src/32b/enc.c</locationURI>
+			<locationURI>MW_INSTALL_DIR/sw/modules/enc/src/32b/enc.c</locationURI>
 		</link>
 		<link>
 			<name>flash.c</name>
@@ -154,12 +154,7 @@
 		<link>
 			<name>hal_2mtr.c</name>
 			<type>1</type>
-			<locationURI>PARENT-4-PROJECT_LOC/ti/motorware/motorware/sw/modules/hal/boards/boostxldrv8305_revA/f28x/f2806x/src/hal_2mtr.c</locationURI>
-		</link>
-		<link>
-			<name>main.c</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/solutions/instaspin_foc/src/proj_lab01.c</locationURI>
+			<locationURI>MW_INSTALL_DIR/sw/modules/hal/boards/boostxldrv8305_revA/f28x/f2806x/src/hal_2mtr.c</locationURI>
 		</link>
 		<link>
 			<name>memCopy.c</name>
@@ -199,7 +194,7 @@
 		<link>
 			<name>qep.c</name>
 			<type>1</type>
-			<locationURI>PARENT-4-PROJECT_LOC/ti/motorware/motorware/sw/drivers/qep/src/32b/f28x/f2806x/qep.c</locationURI>
+			<locationURI>MW_INSTALL_DIR/sw/drivers/qep/src/32b/f28x/f2806x/qep.c</locationURI>
 		</link>
 		<link>
 			<name>spi.c</name>
@@ -219,7 +214,7 @@
 		<link>
 			<name>user_2mtr.c</name>
 			<type>1</type>
-			<locationURI>PARENT-4-PROJECT_LOC/ti/motorware/motorware/sw/modules/user/src/32b/user_2mtr.c</locationURI>
+			<locationURI>MW_INSTALL_DIR/sw/modules/user/src/32b/user_2mtr.c</locationURI>
 		</link>
 		<link>
 			<name>wdog.c</name>
