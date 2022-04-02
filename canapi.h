@@ -69,31 +69,16 @@ extern "C" {
 //! NOTE: Changing the mailbox number of a message also requires some
 //! adjustments in the code below!
 //! \{
-#define CAN_MBOX_OUT_STATUSMSG  (uint32_t) 1 << 15
-#define CAN_MBOX_OUT_Iq         (uint32_t) 1 << 14
-#define CAN_MBOX_OUT_ENC_POS    (uint32_t) 1 << 13
-#define CAN_MBOX_OUT_SPEED      (uint32_t) 1 << 12
-#define CAN_MBOX_OUT_ADC6       (uint32_t) 1 << 11
-#define CAN_MBOX_OUT_ENC_INDEX  (uint32_t) 1 << 10
-#define CAN_MBOX_IN_COMMANDS    (uint32_t) 1 << 0
-#define CAN_MBOX_IN_IqRef       (uint32_t) 1 << 1
-
 #define CAN_MBOX_OUT_PIVOTENC   (uint32_t) 1 << 9
 #define CAN_MBOX_OUT_PIVOTENCVEL (uint32_t) 1 << 8
 #define CAN_MBOX_OUT_PIVOTENCACC (uint32_t) 1 << 7
 
-#define CAN_MBOX_ALL  CAN_MBOX_OUT_STATUSMSG \
-	| CAN_MBOX_OUT_Iq \
-	| CAN_MBOX_OUT_ENC_POS \
-	| CAN_MBOX_OUT_SPEED \
-	| CAN_MBOX_OUT_ADC6 \
-	| CAN_MBOX_OUT_ENC_INDEX \
-	| CAN_MBOX_IN_COMMANDS \
-	| CAN_MBOX_IN_IqRef \
-	| CAN_MBOX_OUT_PIVOTENC \
-	| CAN_MBOX_OUT_PIVOTENCVEL \
-	| CAN_MBOX_OUT_PIVOTENCACC
+#define CAN_MBOX_OUT_STATUSMSG (uint32_t) 1 << 15
 
+#define CAN_MBOX_ALL CAN_MBOX_OUT_PIVOTENC \
+    | CAN_MBOX_OUT_PIVOTENCVEL \
+    | CAN_MBOX_OUT_PIVOTENCACC \
+    | CAN_MBOX_OUT_STATUSMSG
 //! \}
 
 //#define CAN_MBOX_ALL CAN_MBOX_OUT_ENC_POS
@@ -102,69 +87,18 @@ extern "C" {
 //! \name Arbitration IDs
 //! \brief Arbitration IDs of the different message types
 //! \{
-#define CAN_ID_COMMANDS   0x00
-#define CAN_ID_IqRef      0x05
-#define CAN_ID_STATUSMSG  0x10
-#define CAN_ID_Iq         0x20
-#define CAN_ID_POS        0x30
-#define CAN_ID_SPEED      0x40
-#define CAN_ID_ADC6       0x50
-#define CAN_ID_ENC_INDEX  0x60
-#define CAN_ID_PIVOTENC 0x99
-#define CAN_ID_PIVOTENCVEL 0x98
-#define CAN_ID_PIVOTENCACC 0x97
+#define CAN_ID_PIVOTENC     0x31
+#define CAN_ID_PIVOTENCVEL  0x41
+#define CAN_ID_PIVOTENCACC  0x71
+#define CAN_ID_STATUSMSG 0x11
 //! \}
-
-
-//! Command IDs
-//! \brief IDs of the various commands that can be sent to the COMMANDS mailbox
-//!
-//! The ID is expected to be in the high bytes (MDH) of the frame.
-//! \{
-#define CAN_CMD_ENABLE_SYS 1
-#define CAN_CMD_ENABLE_MTR1 2
-#define CAN_CMD_ENABLE_MTR2 3
-#define CAN_CMD_ENABLE_VSPRING1 4
-#define CAN_CMD_ENABLE_VSPRING2 5
-#define CAN_CMD_SEND_CURRENT 12
-#define CAN_CMD_SEND_POSITION 13
-#define CAN_CMD_SEND_VELOCITY 14
-#define CAN_CMD_SEND_ADC6 15
-#define CAN_CMD_SEND_ENC_INDEX 16
-#define CAN_CMD_SEND_ALL 20
-#define CAN_CMD_SET_CAN_RECV_TIMEOUT 30
-#define CAN_CMD_ENABLE_POS_ROLLOVER_ERROR 31
-//! \}
-
-
-//! \name Error Codes
-//! \anchor ErrorCodes
-//! \brief Possible Error Codes for the status message
-//! \{
-
-//! \brief No error
-#define CAN_ERROR_NO_ERROR 0
-//! \brief Encoder error too high
-#define CAN_ERROR_ENCODER 1
-//! \brief Timeout for receiving current references exceeded
-#define CAN_ERROR_CAN_RECV_TIMEOUT 2
-//! \brief Motor temperature reached critical value
-//! \note This is currently unused as no temperature sensing is done.
-#define CAN_ERROR_CRIT_TEMP 3  // currently unused
-//! \brief Some error in the SpinTAC Position Convert module
-#define CAN_ERROR_POSCONV 4
-//! \brief Position Rollover occured
-#define CAN_ERROR_POS_ROLLOVER 5
-//! \brief Some other error
-#define CAN_ERROR_OTHER 7
-//! \}
-
 
 
 // **************************************************************************
 // the typedefs
 
 //! \brief Status message bits.
+
 struct CAN_STATUSMSG_BITS
 {                              // bits
    uint16_t system_enabled:1;  // 0
@@ -177,7 +111,9 @@ struct CAN_STATUSMSG_BITS
    uint16_t rsvd:8;            // 8-15
 };
 
+
 //! \brief Status message that allows integer or bit access.
+
 typedef union _CAN_StatusMsg_t_
 {
    uint16_t              all;
@@ -185,7 +121,9 @@ typedef union _CAN_StatusMsg_t_
 } CAN_StatusMsg_t;
 
 
+
 //! \brief Command message.
+/*
 typedef struct _CAN_Command_t_
 {
 	//! \brief Command ID
@@ -193,7 +131,7 @@ typedef struct _CAN_Command_t_
 	//! \brief Value of the command
 	uint32_t value;
 } CAN_Command_t;
-
+*/
 
 // **************************************************************************
 // the globals
@@ -216,106 +154,33 @@ extern void CAN_setupMboxes();
 
 
 //! \brief Write status message to the corresponding transmission mailbox.
-inline void CAN_setStatusMsg(CAN_StatusMsg_t statusmsg)
+
+inline void CAN_setStatusMsg()
 {
-	ECanaMboxes.MBOX15.MDL.byte.BYTE0 = statusmsg.all;
 
-	return;
-}
+    CAN_StatusMsg_t status;
 
-inline void CAN_setDataPivotEnc(_iq enc_pos_1, _iq enc_pos_2)
-{
-    ECanaMboxes.MBOX9.MDL.all = enc_pos_1;
-    ECanaMboxes.MBOX9.MDH.all = enc_pos_2;
+    status.all = 0;
 
-    return;
-}
-
-
-//! \brief Write motor data of motor 1 to the corresponding transmission
-//! 	mailboxes.
-//!
-//! \param current_iq  The current Iq of the motor in A.
-//! \param encoder_position  Current position of the motor in mechanical
-//!                          revolutions (mrev).
-//! \param velocity  Velocity of the motor in krpm.
-inline void CAN_setDataMotor1(_iq current_iq, _iq position, _iq velocity)
-{
-	ECanaMboxes.MBOX14.MDL.all = current_iq;
-	ECanaMboxes.MBOX13.MDL.all = position;
-	ECanaMboxes.MBOX12.MDL.all = velocity;
+	ECanaMboxes.MBOX15.MDL.byte.BYTE0 = status.all;
 
 	return;
 }
 
 
-//! \brief Write motor data of motor 2 to the corresponding transmission
-//! 	mailboxes.
-//!
-//! \param current_iq  The current Iq of the motor in A.
-//! \param encoder_position  Current position of the motor in mechanical
-//!                          revolutions (mrev).
-//! \param velocity  Velocity of the motor in krpm.
-inline void CAN_setDataMotor2(_iq current_iq, _iq encoder_position,
-		_iq velocity)
+inline void CAN_setEnc1(_iq encPos, _iq encVel, _iq encAcc)
 {
-	ECanaMboxes.MBOX14.MDH.all = current_iq;
-	ECanaMboxes.MBOX13.MDH.all = encoder_position;
-	ECanaMboxes.MBOX12.MDH.all = velocity;
-
-	return;
+    ECanaMboxes.MBOX9.MDL.all = encPos;
+    ECanaMboxes.MBOX8.MDL.all = encVel;
+    ECanaMboxes.MBOX7.MDL.all = encAcc;
 }
 
 
-//! \brief Write readings of ADCINA6 and B6 to the corresponding transmission
-//! 	mailbox.
-//!
-//! \param adcin_a6 Result of ADCINA6
-//! \param adcin_b6 Result of ADCINB6
-inline void CAN_setAdcIn6Values(_iq adcin_a6, _iq adcin_b6)
+inline void CAN_setEnc2(_iq encPos, _iq encVel, _iq encAcc)
 {
-	ECanaMboxes.MBOX11.MDL.all = adcin_a6;
-	ECanaMboxes.MBOX11.MDH.all = adcin_b6;
-}
-
-
-//! \brief Write encoder index position to the corresponding transmission
-//! 	mailbox.
-//!
-//! \param mtrNum Number of the motor (either 0 or 1).
-//! \param index_position Position of the motor when the index occured [mrev].
-inline void CAN_setEncoderIndex(uint16_t mtrNum, _iq index_position)
-{
-	ECanaMboxes.MBOX10.MDH.byte.BYTE4 = mtrNum & 0xFF;
-	ECanaMboxes.MBOX10.MDL.all = index_position;
-}
-
-
-//! \brief Get the last command message that was received.
-//!
-//! \returns Last received command message.
-inline CAN_Command_t CAN_getCommand()
-{
-	CAN_Command_t cmd;
-
-	cmd.id = ECanaMboxes.MBOX0.MDH.all;
-	cmd.value = ECanaMboxes.MBOX0.MDL.all;
-
-	return cmd;
-}
-
-
-//! \brief Get the last Iq reference that was received.
-//!
-//! \param mtrNum Number of the motor
-//! \returns Last received IqRef value for the specified motor.
-inline _iq CAN_getIqRef(uint16_t mtrNum)
-{
-	if (mtrNum == HAL_MTR1) {
-		return ECanaMboxes.MBOX1.MDL.all;
-	} else {
-		return ECanaMboxes.MBOX1.MDH.all;
-	}
+    ECanaMboxes.MBOX9.MDH.all = encPos;
+    ECanaMboxes.MBOX8.MDH.all = encVel;
+    ECanaMboxes.MBOX7.MDH.all = encAcc;
 }
 
 

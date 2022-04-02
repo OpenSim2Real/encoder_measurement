@@ -131,7 +131,6 @@ void CAN_initECana()
 	ECanaRegs.CANGIF0.all = 0xFFFFFFFF; // Clear all interrupt flag bits
 	ECanaRegs.CANGIF1.all = 0xFFFFFFFF;
 
-
 	/* Configure bit timing parameters for eCANA*/
 
 	// requesting reconfiguration of CANBTC by setting CCR = 1
@@ -197,31 +196,17 @@ void CAN_setupMboxes()
 
 	/// Set arbitration IDs for all used mailboxes
 	// Since we are using the standard mode, only the bits 28:18 are used.
-    ECanaMboxes.MBOX15.MSGID.all = (uint32_t)CAN_ID_STATUSMSG << 18;
-    ECanaMboxes.MBOX14.MSGID.all = (uint32_t)CAN_ID_Iq << 18;
-    ECanaMboxes.MBOX13.MSGID.all = (uint32_t)CAN_ID_POS << 18;
-    ECanaMboxes.MBOX12.MSGID.all = (uint32_t)CAN_ID_SPEED << 18;
-    ECanaMboxes.MBOX11.MSGID.all = (uint32_t)CAN_ID_ADC6 << 18;
-    ECanaMboxes.MBOX10.MSGID.all = (uint32_t)CAN_ID_ENC_INDEX << 18;
-    ECanaMboxes.MBOX0.MSGID.all = (uint32_t)CAN_ID_COMMANDS << 18;
-    ECanaMboxes.MBOX1.MSGID.all = (uint32_t)CAN_ID_IqRef << 18;
-
     ECanaMboxes.MBOX9.MSGID.all = (uint32_t)CAN_ID_PIVOTENC << 18;
+    ECanaMboxes.MBOX8.MSGID.all = (uint32_t)CAN_ID_PIVOTENCVEL << 18;
+    ECanaMboxes.MBOX7.MSGID.all = (uint32_t)CAN_ID_PIVOTENCACC << 18;
+    ECanaMboxes.MBOX15.MSGID.all = (uint32_t)CAN_ID_STATUSMSG << 18;
 
     // TODO: Don't use mbox0 for commands. Those commands should have highest
     // priority of all messages (needed to disable motor in case of some
     // failure), so it should get the highest priority receive mailbox).
 
-    // Clear value of receive mailboxes to avoid false values
-    ECanaMboxes.MBOX0.MDL.all = 0;
-    ECanaMboxes.MBOX0.MDH.all = 0;
-    ECanaMboxes.MBOX1.MDL.all = 0;
-    ECanaMboxes.MBOX1.MDH.all = 0;
-
-    /// Configure Mailboxes 0-4 for receiving, rest for transmitting
-    // Since this write is to the entire register (instead of a bit field) a
-    // shadow register is not required.
-    ECanaRegs.CANMD.all = 0x0000000F;
+    /// Configure all mailboxes for transmitting.
+    ECanaRegs.CANMD.all = 0x00000000;
 
     /// Enable all used Mailboxes
     // Since this write is to the entire register (instead of a bit
@@ -229,16 +214,10 @@ void CAN_setupMboxes()
     ECanaRegs.CANME.all = CAN_MBOX_ALL;
 
     // Specify the number of bytes that will be sent/received by each mailbox
-    ECanaMboxes.MBOX0.MSGCTRL.bit.DLC = 8;
-    ECanaMboxes.MBOX1.MSGCTRL.bit.DLC = 8;
-    ECanaMboxes.MBOX10.MSGCTRL.bit.DLC = 5;
-    ECanaMboxes.MBOX11.MSGCTRL.bit.DLC = 8;
-    ECanaMboxes.MBOX12.MSGCTRL.bit.DLC = 8;
-    ECanaMboxes.MBOX13.MSGCTRL.bit.DLC = 8;
-    ECanaMboxes.MBOX14.MSGCTRL.bit.DLC = 8;
-    ECanaMboxes.MBOX15.MSGCTRL.bit.DLC = 1;
-
     ECanaMboxes.MBOX9.MSGCTRL.bit.DLC = 8;
+    ECanaMboxes.MBOX8.MSGCTRL.bit.DLC = 8;
+    ECanaMboxes.MBOX7.MSGCTRL.bit.DLC = 8;
+    ECanaMboxes.MBOX15.MSGCTRL.bit.DLC = 1;
 
     /// Setup interrupts
     // MBOX0 is receive mailbox for commands which should be executed

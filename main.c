@@ -58,8 +58,6 @@ volatile struct ECAN_REGS ECanaRegs;
 #pragma DATA_SECTION(ECanaMboxes, "ECanaMboxesFile");
 volatile struct ECAN_MBOXES ECanaMboxes;
 
-uint32_t gCanLastStatusMsgTime = 0;
-
 uint32_t gTimer0_stamp = 0;
 
 HAL_Handle halHandle;                         // Handle to the Inverter hardware abstraction layer
@@ -78,11 +76,28 @@ HAL_Obj_mtr halMtr[2];
 
 USER_Params gUserParams[2];                      // Contains the user.h settings
 
-uint32_t previous_index_pos_1 = 0;
-uint32_t previous_index_pos_2 = 0;
+int32_t gNumRevs[2];
 
-int32_t num_revs_1 = 0;
-int32_t num_revs_2 = 0;
+uint32_t gPreviousEncPos[2];
+float gPreviousEncPosition[2][3];
+uint32_t gQepPosMax[2];
+
+float gEncPosQueue[2][WINDOW_SIZE];
+uint32_t gEncPosQueueIndex[2];
+float gEncPosRolling[2];
+
+float gEncVelQueue[2][WINDOW_SIZE];
+uint32_t gEncVelQueueIndex[2];
+float gEncVelRolling[2];
+
+float gEncAccQueue[2][WINDOW_SIZE];
+uint32_t gEncAccQueueIndex[2];
+float gEncAccRolling[2];
+
+uint32_t index;
+
+//! Last time a status message was sent via CAN (based on gTimer0_stamp).
+uint32_t gCanLastStatusMsgTime = 0;
 
 #ifdef FLASH
 // Used for running BackGround in flash, and ISR in RAM
@@ -137,29 +152,11 @@ void main(void)
   HAL_setParamsMtr(halHandleMtr[HAL_MTR1], halHandle, &gUserParams[HAL_MTR1]);
   HAL_setParamsMtr(halHandleMtr[HAL_MTR2], halHandle, &gUserParams[HAL_MTR2]);
 
-  HAL_setupQEP(halHandleMtr[HAL_MTR1], 200);
-  HAL_setupQEP(halHandleMtr[HAL_MTR2], 200);
+  HAL_setupQEP(halHandleMtr[HAL_MTR1], 5000);
+  HAL_setupQEP(halHandleMtr[HAL_MTR2], 5000);
 
   HAL_setGpioLow(halHandle, (GPIO_Number_e)HAL_Gpio_LED3);
   HAL_setGpioLow(halHandle, (GPIO_Number_e)HAL_Gpio_LED2);
-
-  // initialize the encoder module
-  encHandle[HAL_MTR1] = ENC_init(&enc[HAL_MTR1], sizeof(enc[HAL_MTR1]));
-  encHandle[HAL_MTR2] = ENC_init(&enc[HAL_MTR2], sizeof(enc[HAL_MTR2]));
-
-  // setup the encoder module
-  ENC_setup(encHandle[HAL_MTR1], 1, USER_MOTOR_NUM_POLE_PAIRS,
-            200, 0, USER_IQ_FULL_SCALE_FREQ_Hz,
-            USER_ISR_FREQ_Hz, 8000.0);
-  ENC_setup(encHandle[HAL_MTR2], 1, USER_MOTOR_NUM_POLE_PAIRS_2,
-            200, 0, USER_IQ_FULL_SCALE_FREQ_Hz_2,
-            USER_ISR_FREQ_Hz_2, 8000.0);
-
-  // initialize the interrupt vector table
-  HAL_initIntVectorTable(halHandle);
-
-  // enable the ADC interrupts
-  HAL_enableAdcInts(halHandle);
 
   // enable global interrupts
   HAL_enableGlobalInts(halHandle);
@@ -178,6 +175,47 @@ void main(void)
   // Setup everything related to CAN communication
   setupCan(halHandle, &can1_ISR);
 
+  gQepPosMax[HAL_MTR1] = halHandleMtr[HAL_MTR1]->qepHandle->QPOSMAX;
+  gQepPosMax[HAL_MTR2] = halHandleMtr[HAL_MTR2]->qepHandle->QPOSMAX;
+
+  gPreviousEncPosition[HAL_MTR1][0] = 0.0;
+  gPreviousEncPosition[HAL_MTR1][1] = 0.0;
+  gPreviousEncPosition[HAL_MTR1][2] = 0.0;
+  gPreviousEncPosition[HAL_MTR2][0] = 0.0;
+  gPreviousEncPosition[HAL_MTR2][1] = 0.0;
+  gPreviousEncPosition[HAL_MTR2][2] = 0.0;
+
+  gPreviousEncPos[HAL_MTR1] = 0;
+  gPreviousEncPos[HAL_MTR2] = 0;
+
+  gNumRevs[HAL_MTR1] = 0;
+  gNumRevs[HAL_MTR2] = 0;
+
+  // Initialize queues
+  for (index = 0; index < WINDOW_SIZE; index++)
+  {
+      gEncPosQueue[HAL_MTR1][index] = 0.0;
+      gEncPosQueue[HAL_MTR2][index] = 0.0;
+
+      gEncVelQueue[HAL_MTR1][index] = 0.0;
+      gEncVelQueue[HAL_MTR2][index] = 0.0;
+
+      gEncAccQueue[HAL_MTR1][index] = 0.0;
+      gEncAccQueue[HAL_MTR2][index] = 0.0;
+  }
+  gEncPosQueueIndex[HAL_MTR1] = 0;
+  gEncPosQueueIndex[HAL_MTR2] = 0;
+  gEncVelQueueIndex[HAL_MTR1] = 0;
+  gEncVelQueueIndex[HAL_MTR2] = 0;
+  gEncAccQueueIndex[HAL_MTR1] = 0;
+  gEncAccQueueIndex[HAL_MTR2] = 0;
+
+  gEncPosRolling[HAL_MTR1] = 0.0;
+  gEncPosRolling[HAL_MTR2] = 0.0;
+  gEncVelRolling[HAL_MTR1] = 0.0;
+  gEncVelRolling[HAL_MTR2] = 0.0;
+  gEncAccRolling[HAL_MTR1] = 0.0;
+  gEncAccRolling[HAL_MTR2] = 0.0;
 
   // For ever loop
   while(true)
@@ -190,6 +228,18 @@ void main(void)
 
 interrupt void timer0_ISR() {
     ++gTimer0_stamp;
+
+    // If there is still an old message waiting for transmission, abort it
+    if (CAN_checkTransmissionPending(CAN_MBOX_ALL)) {
+        CAN_abort(CAN_MBOX_ALL);
+    }
+
+    setEncoderStatus(HAL_MTR1);
+    setEncoderStatus(HAL_MTR2);
+
+    CAN_send((uint32_t) CAN_MBOX_OUT_PIVOTENC \
+             | CAN_MBOX_OUT_PIVOTENCVEL \
+             | CAN_MBOX_OUT_PIVOTENCACC);
 
     // acknowledge interrupt
     HAL_acqTimer0Int(halHandle);
@@ -204,162 +254,86 @@ void PIE_registerTimer0IntHandler(PIE_Handle pieHandle, PIE_IntVec_t isr)
     DISABLE_PROTECTED_REGISTER_WRITE_MODE;
 }
 
-void setCanStatusMsg() {
-    CAN_StatusMsg_t status;
+void setEncoderStatus(const HAL_MtrSelect_e mtrNum) {
 
-    // Send status message via CAN
-    status.all = 0;
+    // get the encoder position first
 
-    CAN_setStatusMsg(status);
+    uint32_t index_posn = QEP_read_posn_count(halHandleMtr[mtrNum]->qepHandle);
+
+    float encPos, encVel, encAcc;
+    if ((gPreviousEncPos[mtrNum] >= (600*25) && gPreviousEncPos[mtrNum] <= (800*25))
+            && (index_posn <= (200*25)))
+    {
+        gNumRevs[mtrNum]++;
+    }
+    else if ((gPreviousEncPos[mtrNum] <= (25*200))
+            && (index_posn >= (25*600) && index_posn <= (25*800)))
+    {
+        gNumRevs[mtrNum]--;
+    }
+    gPreviousEncPos[mtrNum] = index_posn;
+    encPos = (float_t) (gNumRevs[mtrNum] + ((float_t) index_posn / gQepPosMax[mtrNum]));
+
+    gPreviousEncPosition[mtrNum][0] = gPreviousEncPosition[mtrNum][1];
+    gPreviousEncPosition[mtrNum][1] = gPreviousEncPosition[mtrNum][2];
+    gPreviousEncPosition[mtrNum][2] = encPos;
+
+    // Add encoder position to queue and update rolling average
+    gEncPosRolling[mtrNum] = gEncPosRolling[mtrNum] + (1.0 / WINDOW_SIZE)
+            * (encPos - gEncPosQueue[mtrNum][gEncPosQueueIndex[mtrNum]]);
+    gEncPosQueue[mtrNum][gEncPosQueueIndex[mtrNum]] = encPos;
+    gEncPosQueueIndex[mtrNum] = (gEncPosQueueIndex[mtrNum] + 1) % WINDOW_SIZE;
+
+    // get the encoder velocity and convert to krpm
+    encVel = ((gPreviousEncPosition[mtrNum][2] - gPreviousEncPosition[mtrNum][1])
+                 / (TIMER0_PERIOD_S)) * (60.0 / 1000.0);
+
+    // Add encoder velocity to queue
+    gEncVelRolling[mtrNum] = gEncVelRolling[mtrNum] + (1.0 / WINDOW_SIZE)
+            * (encVel - gEncVelQueue[mtrNum][gEncVelQueueIndex[mtrNum]]);
+    gEncVelQueue[mtrNum][gEncVelQueueIndex[mtrNum]] = encVel;
+    gEncVelQueueIndex[mtrNum] = (gEncVelQueueIndex[mtrNum] + 1) % WINDOW_SIZE;
+
+    // get the encoder acceleration in rad/s
+    encAcc = (gPreviousEncPosition[mtrNum][0] - 2 * gPreviousEncPosition[mtrNum][1]
+         + gPreviousEncPosition[mtrNum][2]) / (2 * PI * TIMER0_PERIOD_S * TIMER0_PERIOD_S);
+
+    // Add encoder acceleration to queue
+    gEncAccRolling[mtrNum] = gEncAccRolling[mtrNum] + (1.0 / WINDOW_SIZE)
+            * (encAcc - gEncAccQueue[mtrNum][gEncAccQueueIndex[mtrNum]]);
+    gEncAccQueue[mtrNum][gEncAccQueueIndex[mtrNum]] = encAcc;
+    gEncAccQueueIndex[mtrNum] = (gEncAccQueueIndex[mtrNum] + 1) % WINDOW_SIZE;
+
+    if (mtrNum == HAL_MTR1)
+    {
+        CAN_setEnc1(_IQ(gEncPosRolling[mtrNum]), _IQ(gEncVelRolling[mtrNum]), _IQ(gEncAccRolling[mtrNum]));
+    }
+    else
+    {
+        CAN_setEnc2(_IQ(gEncPosRolling[mtrNum]), _IQ(gEncVelRolling[mtrNum]), _IQ(gEncAccRolling[mtrNum]));
+    }
+
 }
 
+interrupt void can1_ISR() {
+
+    // acknowledge interrupt from PIE
+    HAL_Obj *obj = (HAL_Obj *)halHandle;
+    PIE_clearInt(obj->pieHandle, PIE_GroupNumber_9);
+
+}
 
 void maybeSendCanStatusMsg() {
     if (gCanLastStatusMsgTime <
         (gTimer0_stamp - TIMER0_FREQ_Hz / CAN_STATUSMSG_TRANS_FREQ_Hz)) {
         // If there is still an old message waiting for transmission, abort it
-        if (CAN_checkTransmissionPending(CAN_MBOX_OUT_PIVOTENC)) {
-            CAN_abort(CAN_MBOX_OUT_PIVOTENC);
+        if (CAN_checkTransmissionPending(CAN_MBOX_OUT_STATUSMSG)) {
+            CAN_abort(CAN_MBOX_OUT_STATUSMSG);
         }
 
-        //setCanStatusMsg();
-        //CAN_send(CAN_MBOX_OUT_PIVOTEN;C);
-
-        // how do i count encoder revolutions?
-        //  first cast the encoder position to a signed 32-bit integer
-        //  if encoder is >= 0 previously, but is <0 now, negative revolution
-        //  if encoder is <0 previously, but is >=0 now, positive revolution
-        //  we must send the float number of encoder revolutions. This means that
-        //      we take the number of complete encoder revolutions, then add the
-        //      current recorded encoder revolutions number to it.
-
-        //HAL_Obj_mtr *halMtrObj = (HAL_Obj_mtr *)halHandleMtr[HAL_MTR1];
-        //uint32_t index_posn = QEP_read_posn_count(halMtrObj->qepHandle);
-        //QEP_Obj *qep = (QEP_Obj *)halMtrObj->qepHandle;
-        //_iq enc_pos_1 = _IQ((float_t) qep->QPOSMAX / qep->QPOSMAX);
-
-        //HAL_Obj_mtr *halMtrObj2 = (HAL_Obj_mtr *)halHandleMtr[HAL_MTR2];
-        //uint32_t index_posn2 = QEP_read_posn_count(halMtrObj2->qepHandle);
-        //QEP_Obj *qep2 = (QEP_Obj *)halMtrObj2->qepHandle;
-        //_iq enc_pos_2 = _IQ((float_t) index_posn2 / qep2->QPOSMAX);
-
-
-        HAL_Obj_mtr *halMtrObj = (HAL_Obj_mtr *)halHandleMtr[HAL_MTR1];
-        uint32_t index_posn = QEP_read_posn_count(halMtrObj->qepHandle);
-        QEP_Obj *qep = (QEP_Obj *)halMtrObj->qepHandle;
-
-        _iq enc_pos_1;
-        if ((previous_index_pos_1 >= 600 && previous_index_pos_1 <= 800)
-                && (index_posn >= 0 && index_posn <= 200))
-        {
-            num_revs_1++;
-        }
-        else if ((previous_index_pos_1 >= 0 && previous_index_pos_1 <= 200)
-                && (index_posn >= 600 && index_posn <=800))
-        {
-            num_revs_1--;
-        }
-        enc_pos_1 = _IQ((float_t) (num_revs_1 + ((float_t) index_posn / qep->QPOSMAX)));
-        previous_index_pos_1 = index_posn;
-
-        HAL_Obj_mtr *halMtrObj2 = (HAL_Obj_mtr *)halHandleMtr[HAL_MTR2];
-        uint32_t index_posn2 = QEP_read_posn_count(halMtrObj2->qepHandle);
-        QEP_Obj *qep2 = (QEP_Obj *)halMtrObj2->qepHandle;
-
-        _iq enc_pos_2;
-        if ((previous_index_pos_2 >= 600 && previous_index_pos_2 <= 800)
-                && (index_posn2 >= 0 && index_posn2 <= 200))
-        {
-            num_revs_2++;
-        }
-        else if ((previous_index_pos_2 >= 0 && previous_index_pos_2 <= 200)
-                && (index_posn2 >= 600 && index_posn2 <=800))
-        {
-            num_revs_2--;
-        }
-        enc_pos_2 = _IQ((float_t) (num_revs_2 + ((float_t) index_posn2 / qep2->QPOSMAX)));
-        previous_index_pos_2 = index_posn2;
-
-        CAN_setDataPivotEnc(enc_pos_1, enc_pos_2);
-        CAN_send(CAN_MBOX_OUT_PIVOTENC);
+        CAN_setStatusMsg();
+        CAN_send(CAN_MBOX_OUT_STATUSMSG);
 
         gCanLastStatusMsgTime = gTimer0_stamp;
     }
 }
-
-interrupt void motor1_ISR(void) {
-    // acknowledge the ADC interrupt
-    HAL_acqAdcInt(halHandle, ADC_IntNumber_1);
-
-    return;
-}  // end of motor1_ISR() function
-
-interrupt void motor2_ISR(void) {
-    // acknowledge the ADC interrupt
-    HAL_acqAdcInt(halHandle, ADC_IntNumber_2);
-
-    return;
-}  // end of motor2_ISR() function
-
-interrupt void can1_ISR() {
-    // The same ISR is used by the eCAN module, independent of the source of the
-    // interrupt.  This means, we have to distinguish the various cases here,
-    // based on the values of certain registers (see SPRUH18f, section 16.13)
-
-    // This ISR is used by GIF1
-
-    // NOTE: SPRU074F, sec. 3.4.3.2 describes how to correctly handle all cases
-    // (I don't fully understand what is meant by a "half-word read", though).
-
-    // Since this ISR is currently only used for mailbox 0 receives, we only
-    // check for this here and simply ignore other cases that call this ISR
-    // (there shouldn't be any).
-    // Note: ECanaRegs.CANGIF1.bit.MIV1 contains the number of the mailbox that
-    // caused this interrupt (this should always be 0 for now).
-    if (CAN_checkReceivedMessagePending(CAN_MBOX_IN_COMMANDS)) {
-
-        // Acknowledge interrupt
-        CAN_clearReceivedMessagePending(CAN_MBOX_IN_COMMANDS);
-    }
-
-    // acknowledge interrupt from PIE
-    HAL_Obj *obj = (HAL_Obj *)halHandle;
-    PIE_clearInt(obj->pieHandle, PIE_GroupNumber_9);
-}
-
-/*
-interrupt void qep1IndexISR() { genericQepIndexISR(HAL_MTR1); }
-
-interrupt void qep2IndexISR() { genericQepIndexISR(HAL_MTR2); }
-
-inline void genericQepIndexISR(const HAL_MtrSelect_e mtrNum) {
-    HAL_Obj *obj = (HAL_Obj *)halHandle;
-    HAL_Obj_mtr *halMtrObj = (HAL_Obj_mtr *)halHandleMtr[mtrNum];
-
-    uint32_t index_posn = QEP_read_posn_index_latch(halMtrObj->qepHandle);
-
-    HAL_toggleGpio(halHandle, (GPIO_Number_e)HAL_Gpio_LED3);
-    HAL_toggleGpio(halHandle, (GPIO_Number_e)HAL_Gpio_LED2);
-
-    // Convert index position from counts to mrev by dividing by the max.
-    // number of counts.
-    QEP_Obj *qep = (QEP_Obj *)halMtrObj->qepHandle;
-    _iq index_pos_mrev = _IQ((float_t) index_posn / qep->QPOSMAX);
-
-    CAN_setEncoderIndex(mtrNum, index_pos_mrev);
-    CAN_send(CAN_MBOX_OUT_ENC_INDEX);
-
-    // acknowledge QEP interrupt
-    // for some reason I have to clear *all* flags, not only Iel
-    QEP_clear_all_interrupt_flags(halMtrObj->qepHandle);
-    // acknowledge interrupt from PIE group 5
-    PIE_clearInt(obj->pieHandle, PIE_GroupNumber_5);
-}
-*/
-
-
-
-
-
-
-

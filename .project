@@ -177,11 +177,6 @@
 			<locationURI>MW_INSTALL_DIR/sw/drivers/pll/src/32b/f28x/f2806x/pll.c</locationURI>
 		</link>
 		<link>
-			<name>proj_lab01.js</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/solutions/instaspin_foc/src/proj_lab01.js</locationURI>
-		</link>
-		<link>
 			<name>pwm.c</name>
 			<type>1</type>
 			<locationURI>MW_INSTALL_DIR/sw/drivers/pwm/src/32b/f28x/f2806x/pwm.c</locationURI>
