@@ -82,24 +82,9 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>2806xRevB_FastSpinROMSymbols.lib</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/modules/fast/lib/32b/f28x/f2806x/2806xRevB_FastSpinROMSymbols.lib</locationURI>
-		</link>
-		<link>
 			<name>CodeStartBranch.asm</name>
 			<type>1</type>
 			<locationURI>MW_INSTALL_DIR/sw/drivers/cpu/src/32b/f28x/f2806x/CodeStartBranch.asm</locationURI>
-		</link>
-		<link>
-			<name>F28069F.cmd</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/ide/ccs/cmd/f2806x/F28069F.cmd</locationURI>
-		</link>
-		<link>
-			<name>F28069F_ram_lnk.cmd</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/ide/ccs/cmd/f2806x/F28069F_ram_lnk.cmd</locationURI>
 		</link>
 		<link>
 			<name>F28069M.cmd</name>
@@ -215,6 +200,21 @@
 			<name>wdog.c</name>
 			<type>1</type>
 			<locationURI>MW_INSTALL_DIR/sw/drivers/wdog/src/32b/f28x/f2806x/wdog.c</locationURI>
+		</link>
+		<link>
+			<name>src/2806xRevB_FastSpinROMSymbols.lib</name>
+			<type>1</type>
+			<locationURI>MW_INSTALL_DIR/sw/modules/fast/lib/32b/f28x/f2806x/2806xRevB_FastSpinROMSymbols.lib</locationURI>
+		</link>
+		<link>
+			<name>src/F28069F.cmd</name>
+			<type>1</type>
+			<locationURI>MW_INSTALL_DIR/sw/ide/ccs/cmd/f2806x/F28069F.cmd</locationURI>
+		</link>
+		<link>
+			<name>src/F28069F_ram_lnk.cmd</name>
+			<type>1</type>
+			<locationURI>MW_INSTALL_DIR/sw/ide/ccs/cmd/f2806x/F28069F_ram_lnk.cmd</locationURI>
 		</link>
 	</linkedResources>
 	<variableList>
