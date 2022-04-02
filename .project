@@ -206,16 +206,6 @@
 			<type>1</type>
 			<locationURI>MW_INSTALL_DIR/sw/modules/fast/lib/32b/f28x/f2806x/2806xRevB_FastSpinROMSymbols.lib</locationURI>
 		</link>
-		<link>
-			<name>src/F28069F.cmd</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/ide/ccs/cmd/f2806x/F28069F.cmd</locationURI>
-		</link>
-		<link>
-			<name>src/F28069F_ram_lnk.cmd</name>
-			<type>1</type>
-			<locationURI>MW_INSTALL_DIR/sw/ide/ccs/cmd/f2806x/F28069F_ram_lnk.cmd</locationURI>
-		</link>
 	</linkedResources>
 	<variableList>
 		<variable>
